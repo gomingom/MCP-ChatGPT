@@ -1,0 +1,26 @@
+{
+	"name": "server",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"predeploy": "cd .. && cd widgets && npm run build",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"test": "vitest",
+		"cf-typegen": "wrangler types"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.12.4",
+		"@types/node": "^25.5.0",
+		"typescript": "^5.5.2",
+		"vitest": "~3.2.0",
+		"wrangler": "^4.76.0"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/ext-apps": "^1.2.2",
+		"@modelcontextprotocol/sdk": "^1.27.1",
+		"agents": "^0.7.9",
+		"zod": "^4.3.6"
+	}
+}
