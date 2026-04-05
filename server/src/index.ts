@@ -63,7 +63,7 @@ export default {
 				],
 			};
 		});
-
+		// Create Deck Tool
 		registerAppTool(
 			server,
 			'create-deck',
@@ -123,6 +123,7 @@ export default {
 			},
 		);
 
+		// List Decks Tool
 		registerAppTool(
 			server,
 			'list-decks',
@@ -171,6 +172,90 @@ export default {
 						decks,
 						username,
 					},
+				};
+			},
+		);
+
+		// Open Deck Tool
+		registerAppTool(
+			server,
+			'Open-deck',
+			{
+				title: 'Open Deck',
+				description:
+					'Use this to open the deck for a user to study. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
+				inputSchema: {
+					username: z.string().describe("The user's username. Ask for this before using the tool"),
+					deckId: z.string().describe('The id of the deck to open. Ask for this before using the `list-decks`tool'),
+				},
+				annotations: { readOnlyHint: true },
+				_meta: {
+					ui: {
+						resourceUri: WIDGET_URI,
+					},
+				},
+			},
+			async ({ username, deckId }) => {
+				const decksKey = `user:${username}:deck:${deckId}`;
+
+				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
+
+				if (!deck) {
+					return {
+						content: [{ text: 'Deck not found', type: 'text' }],
+						structuredContent: { decks: [] },
+					};
+				}
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Studying ${deck.title} with ${deck.description} opened. ${deck.cards}`,
+						},
+					],
+					structuredContent: {
+						deck,
+						username,
+						deckId,
+					},
+				};
+			},
+		);
+
+		// Delete Deck Tool
+		registerAppTool(
+			server,
+			'Delete-deck',
+			{
+				title: 'Delete Deck',
+				description:
+					'Use this to delete the deck for a user. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
+				inputSchema: {
+					username: z.string().describe("The user's username. Ask for this before using the tool"),
+					deckId: z.string().describe('The id of the deck to delete. Ask for this before using the `list-decks`tool'),
+				},
+				annotations: { readOnlyHint: true },
+				_meta: {},
+			},
+			async ({ username, deckId }) => {
+				const decksKey = `user:${username}:deck:${deckId}`;
+
+				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
+
+				if (!deck) {
+					return {
+						content: [{ text: 'Deck not found', type: 'text' }],
+					};
+				}
+				await env.FLASHCARDS_KV.delete(decksKey);
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Deck deleted`,
+						},
+					],
 				};
 			},
 		);
