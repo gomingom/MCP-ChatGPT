@@ -130,7 +130,7 @@ export default {
 				title: 'List Decks',
 				description:
 					'Use this to show the user a list of thier decks. Ask the user for their username before using this tool if you dont know it. ',
-				inputSchema: z.object({}),
+				inputSchema: z.object({ username: z.string().describe("The user's username. Ask for this before using the tool") }),
 				annotations: { readOnlyHint: true },
 				_meta: {
 					ui: {
