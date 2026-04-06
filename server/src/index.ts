@@ -56,6 +56,7 @@ export default {
 										'https://fonts.googleapis.com',
 										'https://fonts.gstatic.com',
 										'https://image.tmdb.org',
+										'https://cdn.openai.com',
 									],
 								},
 							},
