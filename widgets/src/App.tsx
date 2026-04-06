@@ -1,37 +1,47 @@
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import { LoadingIndicator } from "@openai/apps-sdk-ui/components/Indicator";
 import { useState } from "react";
-import type { MovieDetail, MoviesResponse } from "./types";
-import { MoviesList } from "./movie-list";
-import { MovieDetails } from "./movie-details";
-
-interface ToolOutput {
-  movies?: MoviesResponse;
-  movie?: MovieDetail;
-}
+import { type ToolOutput } from "./types";
+import { FlashcardStudy } from "./components/flashcard-study";
+import { DeckList } from "./components/deck-list";
 
 function App() {
   const [toolOutput, setToolOutput] = useState<ToolOutput | null>(null);
 
-  const { app } = useApp({
-    appInfo: { name: "Movies Client", version: "1.0" },
+  const { app, error } = useApp({
+    appInfo: { name: "Flashcards Client", version: "1.0" },
     capabilities: {},
     onAppCreated: (app) => {
       app.ontoolresult = (result) => {
         if (result.structuredContent) {
-          setToolOutput(result.structuredContent);
+          setToolOutput(result.structuredContent as unknown as ToolOutput);
         }
       };
     },
   });
 
-  useHostStyles(app, app?.getHostContext() || {});
-  if (toolOutput?.movies) {
-    return <MoviesList movies={toolOutput.movies} />;
+  useHostStyles(app, app?.getHostContext());
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-50 text-red-500">
+        Error: {error.message}
+      </div>
+    );
   }
 
-  if (toolOutput?.movie) {
-    return <MovieDetails movie={toolOutput.movie} />;
+  if (toolOutput && "decks" in toolOutput) {
+    return <DeckList decks={toolOutput.decks} />;
+  }
+
+  if (toolOutput && "deck" in toolOutput) {
+    return (
+      <FlashcardStudy
+        deck={toolOutput.deck}
+        app={app}
+        username={"username" in toolOutput ? toolOutput.username : "anonymous"}
+      />
+    );
   }
 
   return (
