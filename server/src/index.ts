@@ -6,6 +6,7 @@ import { z } from 'zod';
 const WIDGET_URI = 'ui://flashcards-widget';
 
 const cardSchema = z.object({
+	id: z.string().describe('The id of the card. e.g "card-123"').readonly(),
 	front: z.string().describe('The question or prompt'),
 	back: z.string().describe('The answer or response'),
 	hint: z.string().describe('A hint for the answer. e.g "React is a library for building user interfaces."'),
@@ -84,8 +85,8 @@ export default {
 			},
 			async ({ deck: { title, description, cards }, username }) => {
 				const cardWithIds = cards.map((card, index) => ({
-					id: `card-${Date.now()}-${index}`,
 					...card,
+					id: `card-${Date.now()}-${index}`,
 					status: 'new',
 				}));
 				const deck = {
@@ -112,7 +113,7 @@ export default {
 					content: [
 						{
 							type: 'text',
-							text: `Created a ${title} deck with ${cards.length} flashcards.`,
+							text: `Created a ${title} deck with ${cards.length} flashcards and ${JSON.stringify(deck)}.`,
 						},
 					],
 					structuredContent: {
@@ -210,7 +211,7 @@ export default {
 					content: [
 						{
 							type: 'text',
-							text: `Studying ${deck.title} with ${deck.description} opened. ${deck.cards}`,
+							text: `Studying ${deck.title} with ${deck.description} opened. ${JSON.stringify(deck.cards)}`,
 						},
 					],
 					structuredContent: {
@@ -234,7 +235,7 @@ export default {
 					username: z.string().describe("The user's username. Ask for this before using the tool"),
 					deckId: z.string().describe('The id of the deck to delete. Ask for this before using the `list-decks`tool'),
 				},
-				annotations: { readOnlyHint: true },
+				annotations: { destructiveHint: true },
 				_meta: {},
 			},
 			async ({ username, deckId }) => {
@@ -259,6 +260,102 @@ export default {
 				};
 			},
 		);
+
+		// reset deck tool
+		registerAppTool(
+			server,
+			'Reset-deck',
+			{
+				title: 'Reset Deck',
+				description: 'This is to reset the progress of the deck.',
+				inputSchema: {
+					username: z.string(),
+					deckId: z.string(),
+				},
+				annotations: { destructiveHint: true },
+				_meta: {
+					visibility: ['app'],
+				},
+			},
+			async ({ username, deckId }) => {
+				const decksKey = `user:${username}:deck:${deckId}`;
+
+				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
+
+				if (!deck) {
+					return {
+						content: [{ text: 'Error not found', type: 'text' }],
+						isError: true,
+					};
+				}
+
+				for (const card of deck.cards) {
+					card.status = 'new';
+				}
+
+				await env.FLASHCARDS_KV.put(decksKey, JSON.stringify(deck));
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Deck progress has been reset`,
+						},
+					],
+					structuredContent: { deck },
+				};
+			},
+		);
+
+		// mark card
+		registerAppTool(
+			server,
+			'Mark-deck',
+			{
+				title: 'Mark Card',
+				description: 'This is to change the status of the card.',
+				inputSchema: {
+					username: z.string(),
+					deckId: z.string(),
+					status: z.enum(['learning', 'mastered']),
+					cardId: z.string(),
+				},
+				annotations: { readOnlyHint: false },
+				_meta: {
+					visibility: ['app'],
+				},
+			},
+			async ({ username, deckId, cardId, status }) => {
+				const decksKey = `user:${username}:deck:${deckId}`;
+
+				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
+
+				if (!deck) {
+					return {
+						content: [{ text: 'Error not found', type: 'text' }],
+						isError: true,
+					};
+				}
+
+				const card = deck.cards.find((card) => card.id === cardId);
+
+				if (card) {
+					card.status = status;
+				}
+				await env.FLASHCARDS_KV.put(decksKey, JSON.stringify(deck));
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Card ${cardId} has been updated to ${status}`,
+						},
+					],
+					structuredContent: { deck },
+				};
+			},
+		);
+
 		// @ts-ignore
 		const handler = createMcpHandler(server);
 
