@@ -188,7 +188,7 @@ export default {
 		// Open Deck Tool
 		registerAppTool(
 			server,
-			'Open-deck',
+			'open-deck',
 			{
 				title: 'Open Deck',
 				description:
@@ -234,7 +234,7 @@ export default {
 		// Delete Deck Tool
 		registerAppTool(
 			server,
-			'Delete-deck',
+			'delete-deck',
 			{
 				title: 'Delete Deck',
 				description:
@@ -272,7 +272,7 @@ export default {
 		// reset deck tool
 		registerAppTool(
 			server,
-			'Reset-deck',
+			'reset-deck',
 			{
 				title: 'Reset Deck',
 				description: 'This is to reset the progress of the deck.',
@@ -318,7 +318,7 @@ export default {
 		// mark card
 		registerAppTool(
 			server,
-			'Mark-deck',
+			'mark-card',
 			{
 				title: 'Mark Card',
 				description: 'This is to change the status of the card.',
