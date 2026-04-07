@@ -49,6 +49,7 @@ export default {
 
 		registerAppResource(server, 'Flashcards Widget', WIDGET_URI, { description: 'Flashcards widget' }, async () => {
 			const html = await env.ASSETS.fetch(new URL('http://test-fetch-from-assets.com/index.html'));
+			console.log('html', html);
 			return {
 				contents: [
 					{
