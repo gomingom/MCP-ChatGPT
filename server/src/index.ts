@@ -31,9 +31,17 @@ const deckSchema = z.object({
 
 type Deck = z.infer<typeof deckSchema>;
 type Card = z.infer<typeof cardSchema>;
-
+const corsHeaders = {
+	'Access-Control-Allow-Origin': '*', // 특정 도메인만 허용하려면 해당 URL 입력
+	'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type',
+};
+const headers = new Headers(corsHeaders);
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
+		if (request.method === 'OPTIONS') {
+			return new Response('OK', { headers });
+		}
 		const server = new McpServer({
 			name: 'Flashcard server',
 			version: '1.0',
