@@ -9,9 +9,15 @@ interface FlashcardStudyProps {
   deck: Deck;
   app: App | null;
   username: string;
+  viewUUID: string | null;
 }
 
-export function FlashcardStudy({ deck, app, username }: FlashcardStudyProps) {
+export function FlashcardStudy({
+  deck,
+  app,
+  username,
+  viewUUID,
+}: FlashcardStudyProps) {
   const {
     cards,
     currentCard,
@@ -25,7 +31,7 @@ export function FlashcardStudy({ deck, app, username }: FlashcardStudyProps) {
     markCard,
     explainCard,
     resetProgress,
-  } = useStudySession({ deck, app, username });
+  } = useStudySession({ deck, app, username, viewUUID });
 
   if (!currentCard) {
     return (

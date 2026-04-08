@@ -2,6 +2,7 @@ import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@model
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpHandler } from 'agents/mcp';
 import { z } from 'zod';
+import crypto from 'node:crypto';
 
 const WIDGET_URI = 'ui://flashcards-widget';
 
@@ -222,6 +223,9 @@ export default {
 							text: `Studying ${deck.title} with ${deck.description} opened. ${JSON.stringify(deck.cards)}`,
 						},
 					],
+					_meta: {
+						viewUUID: crypto.randomUUID(),
+					},
 					structuredContent: {
 						deck,
 						username,

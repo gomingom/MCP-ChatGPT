@@ -2,18 +2,37 @@ import { useState } from "react";
 import type { App } from "@modelcontextprotocol/ext-apps/react";
 import type { Card, Deck } from "../types";
 
+function saveState(key: string | null, state: object) {
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(state));
+}
+
+function loadState(key: string | null) {
+  if (!key) return null;
+  const state = localStorage.getItem(key);
+  if (!state) return null;
+  return JSON.parse(state as string);
+}
+
 export function useStudySession({
   deck,
   app,
   username,
+  viewUUID,
 }: {
   deck: Deck;
   app: App | null;
   username: string;
+  viewUUID: string | null;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const savedState = loadState(viewUUID as string);
+  const [currentIndex, setCurrentIndex] = useState(
+    savedState ? savedState.currentIndex : 0,
+  );
   const [isFlipped, setIsFlipped] = useState(false);
-  const [cards, setCards] = useState<Card[]>(deck.cards);
+  const [cards, setCards] = useState<Card[]>(
+    savedState ? savedState.cards : deck.cards,
+  );
   const [loading, setLoading] = useState<string | null>(null);
 
   const currentCard = cards[currentIndex];
@@ -21,14 +40,18 @@ export function useStudySession({
 
   function goNext() {
     if (currentIndex >= cards.length - 1) return;
-    setCurrentIndex(currentIndex + 1);
+    const newIndex = currentIndex + 1;
+    setCurrentIndex(newIndex);
     setIsFlipped(false);
+    saveState(viewUUID as string, { cards, currentIndex: newIndex });
   }
 
   function goPrev() {
     if (currentIndex <= 0) return;
-    setCurrentIndex(currentIndex - 1);
+    const nextIndex = currentIndex - 1;
+    setCurrentIndex(nextIndex);
     setIsFlipped(false);
+    saveState(viewUUID as string, { cards, currentIndex: nextIndex });
   }
 
   function toggleFlip() {
@@ -55,7 +78,7 @@ export function useStudySession({
       const updated = [...cards];
       updated[currentIndex] = { ...currentCard, status };
       setCards(updated);
-
+      saveState(viewUUID as string, { cards: updated, currentIndex });
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setIsFlipped(false);
@@ -102,6 +125,7 @@ export function useStudySession({
       }
       const resetCards = cards.map((c) => ({ ...c, status: "new" as const }));
       setCards(resetCards);
+      saveState(viewUUID as string, { cards: resetCards, currentIndex: 0 });
       setCurrentIndex(0);
       setIsFlipped(false);
     } finally {
