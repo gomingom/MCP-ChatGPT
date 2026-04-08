@@ -7,7 +7,7 @@ import { DeckList } from "./components/deck-list";
 
 function App() {
   const [toolOutput, setToolOutput] = useState<ToolOutput | null>(null);
-  const [viewUUID, setViewUUID] = useState<String | null>(null);
+  const [viewUUID, setViewUUID] = useState<string | null>(null);
 
   const { app, error } = useApp({
     appInfo: { name: "Flashcards Client", version: "1.0" },
@@ -44,7 +44,7 @@ function App() {
         deck={toolOutput.deck}
         app={app}
         username={"username" in toolOutput ? toolOutput.username : "anonymous"}
-        viewUUID={viewUUID as unknown as string}
+        viewUUID={viewUUID}
       />
     );
   }
