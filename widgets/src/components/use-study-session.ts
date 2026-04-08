@@ -11,7 +11,7 @@ function loadState(key: string | null) {
   if (!key) return null;
   const state = localStorage.getItem(key);
   if (!state) return null;
-  return JSON.parse(state as string);
+  return JSON.parse(state);
 }
 
 export function useStudySession({
@@ -25,7 +25,7 @@ export function useStudySession({
   username: string;
   viewUUID: string | null;
 }) {
-  const savedState = loadState(viewUUID as string);
+  const savedState = loadState(viewUUID);
   const [currentIndex, setCurrentIndex] = useState(
     savedState ? savedState.currentIndex : 0,
   );
@@ -40,10 +40,10 @@ export function useStudySession({
 
   function goNext() {
     if (currentIndex >= cards.length - 1) return;
-    const newIndex = currentIndex + 1;
-    setCurrentIndex(newIndex);
+    const nextIndex = currentIndex + 1;
+    setCurrentIndex(nextIndex);
     setIsFlipped(false);
-    saveState(viewUUID as string, { cards, currentIndex: newIndex });
+    saveState(viewUUID, { cards, currentIndex: nextIndex });
   }
 
   function goPrev() {
@@ -51,7 +51,7 @@ export function useStudySession({
     const nextIndex = currentIndex - 1;
     setCurrentIndex(nextIndex);
     setIsFlipped(false);
-    saveState(viewUUID as string, { cards, currentIndex: nextIndex });
+    saveState(viewUUID, { cards, currentIndex: nextIndex });
   }
 
   function toggleFlip() {
@@ -78,7 +78,7 @@ export function useStudySession({
       const updated = [...cards];
       updated[currentIndex] = { ...currentCard, status };
       setCards(updated);
-      saveState(viewUUID as string, { cards: updated, currentIndex });
+      saveState(viewUUID, { cards: updated, currentIndex });
       if (currentIndex < cards.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setIsFlipped(false);
@@ -125,7 +125,7 @@ export function useStudySession({
       }
       const resetCards = cards.map((c) => ({ ...c, status: "new" as const }));
       setCards(resetCards);
-      saveState(viewUUID as string, { cards: resetCards, currentIndex: 0 });
+      saveState(viewUUID, { cards: resetCards, currentIndex: 0 });
       setCurrentIndex(0);
       setIsFlipped(false);
     } finally {
