@@ -18,6 +18,7 @@ function App() {
           setToolOutput(result.structuredContent as unknown as ToolOutput);
         }
         if (result._meta) {
+          console.log("viewUUID", result._meta.viewUUID);
           setViewUUID(result._meta.viewUUID as unknown as string);
         }
       };
