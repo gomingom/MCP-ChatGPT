@@ -197,7 +197,7 @@ export default {
 					'Use this to open the deck for a user to study. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
 				inputSchema: {
 					username: z.string().describe("The user's username. Ask for this before using the tool"),
-					deckId: z.string().describe('The id of the deck to open. Ask for this before using the `list-decks`tool'),
+					deckId: z.string().describe('The id of the deck to open. You can get it using the `list-decks` tool '),
 				},
 				annotations: { readOnlyHint: true },
 				_meta: {
