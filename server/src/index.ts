@@ -175,7 +175,7 @@ export default {
 					content: [
 						{
 							type: 'text',
-							text: `Found a total of ${decks.length} decks.`,
+							text: `Found a total of ${decks.length} ${JSON.stringify(decks)}`,
 						},
 					],
 					structuredContent: {
@@ -196,7 +196,7 @@ export default {
 					'Use this to open the deck for a user to study. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
 				inputSchema: {
 					username: z.string().describe("The user's username. Ask for this before using the tool"),
-					deckId: z.string().describe('The id of the deck to open. You can get it using the `list-decks` tool '),
+					deckId: z.string().describe('The id of the deck to open. You can get it using the `list-decks` tool'),
 				},
 				annotations: { readOnlyHint: true },
 				_meta: {
@@ -223,13 +223,13 @@ export default {
 							text: `Studying ${deck.title} with ${deck.description} opened. ${JSON.stringify(deck.cards)}`,
 						},
 					],
-					_meta: {
-						viewUUID: crypto.randomUUID(),
-					},
 					structuredContent: {
 						deck,
 						username,
 						deckId,
+					},
+					_meta: {
+						viewUUID: crypto.randomUUID(),
 					},
 				};
 			},
@@ -245,7 +245,7 @@ export default {
 					'Use this to delete the deck for a user. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
 				inputSchema: {
 					username: z.string().describe("The user's username. Ask for this before using the tool"),
-					deckId: z.string().describe('The id of the deck to delete. Ask for this before using the `list-decks`tool'),
+					deckId: z.string().describe('The id of the deck to delete. ou can get it using the `list-decks` tool'),
 				},
 				annotations: { destructiveHint: true },
 				_meta: {},
