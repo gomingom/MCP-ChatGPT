@@ -158,6 +158,7 @@ export default {
 				if (!deckIds || deckIds.length === 0) {
 					return {
 						content: [{ text: 'You have no decks', type: 'text' }],
+						structuredContent: { decks: [] },
 					};
 				}
 				const decks = [];
@@ -169,8 +170,6 @@ export default {
 						decks.push({ masteredCount, ...deck });
 					}
 				}
-
-				await env.FLASHCARDS_KV.put(decksKey, JSON.stringify(deckIds));
 
 				return {
 					content: [
