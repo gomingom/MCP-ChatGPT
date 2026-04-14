@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1775979083748,
+      "tag": "0000_secret_lester",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775995327224,
+      "tag": "0001_flawless_reaper",
+      "breakpoints": true
+    }
+  ]
+}

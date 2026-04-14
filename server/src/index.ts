@@ -3,35 +3,21 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpHandler } from 'agents/mcp';
 import { z } from 'zod';
 import crypto from 'node:crypto';
+import { drizzle } from 'drizzle-orm/d1';
+import { workouts } from './schema';
+import { desc, eq } from 'drizzle-orm';
 
-const WIDGET_URI = 'ui://flashcards-widget';
+const WIDGET_URI = 'ui://workouts-widget';
 
-const cardSchema = z.object({
-	id: z.string().describe('The id of the card. e.g "card-123"').readonly(),
-	front: z.string().describe('The question or prompt'),
-	back: z.string().describe('The answer or response'),
-	hint: z.string().describe('A hint for the answer. e.g "React is a library for building user interfaces."'),
-	status: z
-		.enum(['new', 'learning', 'mastered'])
-		.describe('The status of the card. e.g "new", "learning", "mastered"')
-		.readonly()
-		.default('new'),
+const exercisesSchema = z.object({
+	name: z.string().describe('The name of the exercise.'),
+	reps: z.number().describe('The number of reps for the exercise.'),
+	instructions: z.string().describe('The instructions for the exercise.'),
+	searchKeyword: z.string().describe('The YouTube search keyword for the exercise. ').optional(),
 });
 
-const deckSchema = z.object({
-	title: z.string().describe('The title of the deck. e.g "React Fundamentals"'),
-	description: z.string().describe('The description of the deck. e.g "A deck of flashcards for studying React Fundamentals"'),
-	cards: z
-		.array(cardSchema)
-		.min(10)
-		.max(20)
-		.describe(
-			'Array of flashcards (aim for 20.) e.g [{ "front": "What is React?", "back": "React is a library for building user interfaces.", "hint": "React is a library for building user interfaces." }]',
-		),
-});
+export type Exercise = z.infer<typeof exercisesSchema>;
 
-type Deck = z.infer<typeof deckSchema>;
-type Card = z.infer<typeof cardSchema>;
 const corsHeaders = {
 	'Access-Control-Allow-Origin': '*', // 특정 도메인만 허용하려면 해당 URL 입력
 	'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
@@ -44,11 +30,11 @@ export default {
 			return new Response('OK', { headers });
 		}
 		const server = new McpServer({
-			name: 'Flashcard server',
+			name: 'Workouts server',
 			version: '1.0',
 		});
 
-		registerAppResource(server, 'Flashcards Widget', WIDGET_URI, { description: 'Flashcards widget' }, async () => {
+		registerAppResource(server, 'Workouts Widget', WIDGET_URI, { description: 'Workouts widget' }, async () => {
 			const html = await env.ASSETS.fetch(new URL('http://test-fetch-from-assets.com/index.html'));
 			return {
 				contents: [
@@ -74,296 +60,263 @@ export default {
 				],
 			};
 		});
-		// Create Deck Tool
+		// Create Workout Tool
 		registerAppTool(
 			server,
-			'create-deck',
+			'create-workout',
 			{
-				title: 'Create Deck',
+				title: 'Create EMOM Workout',
 				description:
-					'Use this to create a deck of flashcards for studying a specific topic. Generate 20 cards, with front (question) and back (answer) with hint as well. Ask the user for their uesername before using this tool.',
+					'Use this to create workout for EMOM (Every Minute On the Minute) training. Generate 5-10 exercises, with 30-60 seconds rest between each exercise. Ask the user for the duration of the workout in minutes. Each exercise needs a name, reps, instructions, and optinally a YouTube search keyword for form tutorials.',
 				inputSchema: z.object({
-					username: z.string().describe('The username of the user creating the deck. Ask for this before using this tool.'),
-					deck: deckSchema,
+					userId: z.string().describe("The user's username. Ask the user for this before using this tool."),
+					title: z.string().describe('The title of the workout.'),
+					description: z.string().describe('The description of the workout.'),
+					durationMinutes: z.number().describe('The duration of the workout in minutes.').min(1).max(60),
+					intervalSeconds: z.number().describe('The interval between exercises in seconds.').min(10).max(120).default(60),
+					exercises: z.array(exercisesSchema).min(5).max(10).describe('The exercises for the workout.'),
 				}),
-				annotations: { readOnlyHint: true },
-				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
-				},
-			},
-			async ({ deck: { title, description, cards }, username }) => {
-				const cardWithIds = cards.map((card, index) => ({
-					...card,
-					id: `card-${Date.now()}-${index}`,
-					status: 'new',
-				}));
-				const deck = {
-					id: `deck-${Date.now()}`,
-					title,
-					description,
-					cards: cardWithIds,
-					createdAt: new Date().toISOString(),
-				};
-
-				const decksKey = `user:${username}:decks`;
-
-				await env.FLASHCARDS_KV.put(`user:${username}:deck:${deck.id}`, JSON.stringify(deck));
-
-				const existingIds = await env.FLASHCARDS_KV.get<string[]>(decksKey, 'json');
-
-				const deckIds = existingIds || [];
-
-				deckIds.push(deck.id);
-
-				await env.FLASHCARDS_KV.put(decksKey, JSON.stringify(deckIds));
-
-				return {
-					content: [
-						{
-							type: 'text',
-							text: `Created a ${title} deck with ${cards.length} flashcards and ${JSON.stringify(deck)}.`,
-						},
-					],
-					structuredContent: {
-						deck,
-						username,
-					},
-				};
-			},
-		);
-
-		// List Decks Tool
-		registerAppTool(
-			server,
-			'list-decks',
-			{
-				title: 'List Decks',
-				description:
-					'Use this to show the user a list of thier decks. Ask the user for their username before using this tool if you dont know it. ',
-				inputSchema: z.object({ username: z.string().describe("The user's username. Ask for this before using the tool") }),
-				annotations: { readOnlyHint: true },
-				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
-				},
-			},
-			async ({ username }) => {
-				const decksKey = `user:${username}:decks`;
-
-				const deckIds = await env.FLASHCARDS_KV.get<string[]>(decksKey, 'json');
-
-				if (!deckIds || deckIds.length === 0) {
-					return {
-						content: [{ text: 'You have no decks', type: 'text' }],
-						structuredContent: { decks: [] },
-					};
-				}
-				const decks = [];
-
-				for (const deckId of deckIds) {
-					const deck = await env.FLASHCARDS_KV.get<Deck>(`user:${username}:deck:${deckId}`, 'json');
-					if (deck) {
-						const masteredCount = deck.cards.filter((card) => card.status === 'mastered').length;
-						decks.push({ masteredCount, ...deck });
-					}
-				}
-
-				return {
-					content: [
-						{
-							type: 'text',
-							text: `Found a total of ${decks.length} ${JSON.stringify(decks)}`,
-						},
-					],
-					structuredContent: {
-						decks,
-						username,
-					},
-				};
-			},
-		);
-
-		// Open Deck Tool
-		registerAppTool(
-			server,
-			'open-deck',
-			{
-				title: 'Open Deck',
-				description:
-					'Use this to open the deck for a user to study. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
-				inputSchema: {
-					username: z.string().describe("The user's username. Ask for this before using the tool"),
-					deckId: z.string().describe('The id of the deck to open. You can get it using the `list-decks` tool'),
-				},
-				annotations: { readOnlyHint: true },
-				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
-				},
-			},
-			async ({ username, deckId }) => {
-				const decksKey = `user:${username}:deck:${deckId}`;
-
-				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
-
-				if (!deck) {
-					return {
-						content: [{ text: 'Deck not found', type: 'text' }],
-						structuredContent: { decks: [] },
-					};
-				}
-				return {
-					content: [
-						{
-							type: 'text',
-							text: `Studying ${deck.title} with ${deck.description} opened. ${JSON.stringify(deck.cards)}`,
-						},
-					],
-					structuredContent: {
-						deck,
-						username,
-						deckId,
-					},
-					_meta: {
-						viewUUID: crypto.randomUUID(),
-					},
-				};
-			},
-		);
-
-		// Delete Deck Tool
-		registerAppTool(
-			server,
-			'delete-deck',
-			{
-				title: 'Delete Deck',
-				description:
-					'Use this to delete the deck for a user. Ask the user for their username before using this tool if you dont know it. Make sure you also have the deck id',
-				inputSchema: {
-					username: z.string().describe("The user's username. Ask for this before using the tool"),
-					deckId: z.string().describe('The id of the deck to delete. ou can get it using the `list-decks` tool'),
-				},
-				annotations: { destructiveHint: true },
-				_meta: {},
-			},
-			async ({ username, deckId }) => {
-				const decksKey = `user:${username}:deck:${deckId}`;
-
-				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
-
-				if (!deck) {
-					return {
-						content: [{ text: 'Deck not found', type: 'text' }],
-					};
-				}
-				await env.FLASHCARDS_KV.delete(decksKey);
-
-				return {
-					content: [
-						{
-							type: 'text',
-							text: `Deck deleted`,
-						},
-					],
-				};
-			},
-		);
-
-		// reset deck tool
-		registerAppTool(
-			server,
-			'reset-deck',
-			{
-				title: 'Reset Deck',
-				description: 'This is to reset the progress of the deck.',
-				inputSchema: {
-					username: z.string(),
-					deckId: z.string(),
-				},
-				annotations: { destructiveHint: true },
-				_meta: {
-					visibility: ['app'],
-				},
-			},
-			async ({ username, deckId }) => {
-				const decksKey = `user:${username}:deck:${deckId}`;
-
-				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
-
-				if (!deck) {
-					return {
-						content: [{ text: 'Error not found', type: 'text' }],
-						isError: true,
-					};
-				}
-
-				for (const card of deck.cards) {
-					card.status = 'new';
-				}
-
-				await env.FLASHCARDS_KV.put(decksKey, JSON.stringify(deck));
-
-				return {
-					content: [
-						{
-							type: 'text',
-							text: `Deck progress has been reset`,
-						},
-					],
-					structuredContent: { deck },
-				};
-			},
-		);
-
-		// mark card
-		registerAppTool(
-			server,
-			'mark-card',
-			{
-				title: 'Mark Card',
-				description: 'This is to change the status of the card.',
-				inputSchema: {
-					username: z.string(),
-					deckId: z.string(),
-					status: z.enum(['learning', 'mastered']),
-					cardId: z.string(),
-				},
 				annotations: { readOnlyHint: false },
 				_meta: {
-					visibility: ['app'],
+					ui: {
+						resourceUri: WIDGET_URI,
+					},
 				},
 			},
-			async ({ username, deckId, cardId, status }) => {
-				const decksKey = `user:${username}:deck:${deckId}`;
+			async ({ userId, title, description, durationMinutes, intervalSeconds, exercises }) => {
+				const db = drizzle(env.DB);
 
-				const deck = await env.FLASHCARDS_KV.get<Deck>(decksKey, 'json');
+				const [result] = await db
+					.insert(workouts)
+					.values({
+						userId,
+						title,
+						description,
+						durationMinutes,
+						intervalSeconds,
+						exercises,
+						exerciseCount: exercises.length,
+					})
+					.returning();
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Created a "${title}" \n Workout id: "${result.id}" \nDescription: ${result.description}`,
+						},
+					],
+					structuredContent: {
+						workout: result,
+					},
+				};
+			},
+		);
 
-				if (!deck) {
+		// Get Workouts Tool
+		registerAppTool(
+			server,
+			'get-workouts',
+			{
+				title: 'Get Workouts',
+				description:
+					'Use this to get all workouts for a user. Ask the user for their username before using this tool if you do not have it.',
+				inputSchema: z.object({
+					userId: z.string().describe("The user's username. Ask the user for this before using this tool."),
+				}),
+				annotations: { readOnlyHint: false },
+				_meta: {
+					ui: {
+						resourceUri: WIDGET_URI,
+					},
+				},
+			},
+			async ({ userId }) => {
+				const db = drizzle(env.DB);
+				const result = await db
+					.select({
+						id: workouts.id,
+						title: workouts.title,
+						description: workouts.description,
+						durationMinutes: workouts.durationMinutes,
+						intervalSeconds: workouts.intervalSeconds,
+						exerciseCount: workouts.exerciseCount,
+					})
+					.from(workouts)
+					.where(eq(workouts.userId, userId))
+					.orderBy(workouts.createdAt);
+
+				if (result.length === 0) {
 					return {
-						content: [{ text: 'Error not found', type: 'text' }],
-						isError: true,
+						content: [
+							{
+								type: 'text',
+								text: 'No workouts found for user.',
+							},
+						],
 					};
 				}
 
-				const card = deck.cards.find((card) => card.id === cardId);
+				const formattedResult = result.map(
+					(workout) =>
+						`id: ${workout.id} \nTitle: ${workout.title} \nDescription: ${workout.description} \nDuration: ${workout.durationMinutes} minutes \nInterval: ${workout.intervalSeconds} seconds \nExercise Count: ${workout.exerciseCount}\n\n========================================\n\n`,
+				);
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Found ${result.length} workouts for user: \n\n${formattedResult}`,
+						},
+					],
+					structuredContent: {
+						workouts: result,
+					},
+				};
+			},
+		);
 
-				if (card) {
-					card.status = status;
+		// Get specific workout tool
+		registerAppTool(
+			server,
+			'get-workout',
+			{
+				title: 'View Workout',
+				description:
+					'Use this to get a specific workout with all its exercises. The widget shows a Start Workout button that opens a fullscreen timer session.',
+				inputSchema: z.object({
+					workoutId: z.string().describe("The workout's id. Ask the user for this before using this tool if you do not have it."),
+				}),
+				annotations: { readOnlyHint: false },
+				_meta: {
+					ui: {
+						resourceUri: WIDGET_URI,
+					},
+				},
+			},
+			async ({ workoutId }) => {
+				const db = drizzle(env.DB);
+				const [result] = await db.select().from(workouts).where(eq(workouts.id, workoutId)).limit(1);
+
+				if (result === undefined) {
+					return {
+						content: [
+							{
+								type: 'text',
+								text: 'No workout found with the given id.',
+							},
+						],
+					};
 				}
-				await env.FLASHCARDS_KV.put(decksKey, JSON.stringify(deck));
 
 				return {
 					content: [
 						{
 							type: 'text',
-							text: `Card ${cardId} has been updated to ${status}`,
+							text: `Viewing "${result.title}" - ${result.durationMinutes} min workout with ${result.exerciseCount} exercises.`,
 						},
 					],
-					structuredContent: { deck },
+					structuredContent: {
+						workout: result,
+					},
+				};
+			},
+		);
+
+		// Delete workout tool
+		registerAppTool(
+			server,
+			'delete-workout',
+			{
+				title: 'Delete Workout',
+				description:
+					'Use this to delete a specific workout for a user. The widget shows a Delete Workout button that deletes the workout and all its exercises.',
+				inputSchema: z.object({
+					workoutId: z.string().describe("The workout's id. Ask the user for this before using this tool if you do not have it."),
+				}),
+				annotations: { readOnlyHint: false },
+				_meta: {
+					ui: {
+						resourceUri: WIDGET_URI,
+					},
+				},
+			},
+			async ({ workoutId }) => {
+				const db = drizzle(env.DB);
+				await db.delete(workouts).where(eq(workouts.id, workoutId));
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Deleted workout with id: "${workoutId}".`,
+						},
+					],
+				};
+			},
+		);
+
+		// Complete workout tool
+		registerAppTool(
+			server,
+			'complete-workout',
+			{
+				title: 'Complte Workout',
+				description:
+					'Use this to complete a specific workout for a user. The widget shows a Complete Workout button that completes the workout and all its exercises.',
+				inputSchema: z.object({
+					workoutId: z.string().describe("The workout's id. Ask the user for this before using this tool if you do not have it."),
+					roundsCompleted: z.number().describe('The number of rounds completed for the workout.'),
+				}),
+				annotations: { readOnlyHint: false },
+				_meta: {
+					ui: {
+						resourceUri: WIDGET_URI,
+					},
+				},
+			},
+			async ({ workoutId, roundsCompleted }) => {
+				const db = drizzle(env.DB);
+				const [result] = await db.select().from(workouts).where(eq(workouts.id, workoutId)).limit(1);
+
+				if (result === undefined) {
+					return {
+						content: [
+							{
+								type: 'text',
+								text: 'No workout found with the given id.',
+								isError: true,
+							},
+						],
+					};
+				}
+				const summary = result.exercises.map((exercise) => `${exercise.name} - ${exercise.reps} reps`).join(', ');
+
+				const response = (await env.AI.run('@cf/zai-org/glm-4.7-flash' as keyof AiModels, {
+					messages: [
+						{
+							role: 'system',
+							content:
+								'You are a fitness calories calculator. Reply only with single integer representing the calories burned from the workout. No text, no units, nothing else than a single integer.',
+						},
+						{
+							role: 'user',
+							content: `I did an EMOM workout. Here is exactly how much I exercised:\n\n
+							- Round completed ${roundsCompleted}\n
+							 Exercises per round: ${summary}\n`,
+						},
+					],
+				})) as any;
+
+				const calories = response.choices[0].message.content;
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Completed ${roundsCompleted} rounds for workout. Calories burned: ${calories}`,
+						},
+					],
+					structuredContent: {
+						calories: parseInt(calories, 10),
+					},
 				};
 			},
 		);

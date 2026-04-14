@@ -10,20 +10,23 @@
 	"observability": {
 		"enabled": true,
 	},
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_compat"],
 	"assets": {
 		"directory": "dist",
 		"binding": "ASSETS",
 	},
-	"kv_namespaces": [
+	"d1_databases": [
 		{
-			"binding": "FLASHCARDS_KV",
-			"id": "a8914ac877e447f9974112e7d34eb554",
-			"remote": true
-		}
+			"binding": "DB",
+			"database_name": "workouts_database",
+			"database_id": "26ee8c41-54f1-45f5-95ad-b9c63edf9c11",
+			"remote": true,
+			"migrations_dir": "drizzle",
+		},
 	],
+	"ai": {
+		"binding": "AI",
+	},
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
