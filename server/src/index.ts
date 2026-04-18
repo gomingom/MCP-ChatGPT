@@ -1,41 +1,22 @@
+import OAuthProvider from '@cloudflare/workers-oauth-provider';
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpHandler } from 'agents/mcp';
-import { z } from 'zod';
-import crypto from 'node:crypto';
-import { drizzle } from 'drizzle-orm/d1';
-import { workouts } from './schema';
-import { desc, eq } from 'drizzle-orm';
 
-const WIDGET_URI = 'ui://workouts-widget';
+import z from 'zod';
+import handleAuthorize from './lib/authorize';
 
-const exercisesSchema = z.object({
-	name: z.string().describe('The name of the exercise.'),
-	reps: z.number().describe('The number of reps for the exercise.'),
-	instructions: z.string().describe('The instructions for the exercise.'),
-	searchKeyword: z.string().describe('The YouTube search keyword for the exercise. ').optional(),
-});
+const WIDGET_URI = 'ui://ecommerce-widget';
 
-export type Exercise = z.infer<typeof exercisesSchema>;
-
-const corsHeaders = {
-	'Access-Control-Allow-Origin': '*', // 특정 도메인만 허용하려면 해당 URL 입력
-	'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
-	'Access-Control-Allow-Headers': 'Content-Type',
-};
-const headers = new Headers(corsHeaders);
-export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		if (request.method === 'OPTIONS') {
-			return new Response('OK', { headers });
-		}
+const privateHandler = {
+	async fetch(request, env, ctx) {
 		const server = new McpServer({
-			name: 'Workouts server',
+			name: 'Ecommerce App',
 			version: '1.0',
 		});
 
-		registerAppResource(server, 'Workouts Widget', WIDGET_URI, { description: 'Workouts widget' }, async () => {
-			const html = await env.ASSETS.fetch(new URL('http://test-fetch-from-assets.com/index.html'));
+		registerAppResource(server, 'Ecommerce Widget', WIDGET_URI, { description: 'Ecommerce Widget' }, async () => {
+			const html = await env.ASSETS.fetch(new URL('http://hello/index.html'));
 			return {
 				contents: [
 					{
@@ -43,6 +24,7 @@ export default {
 						text: await html.text(),
 						mimeType: RESOURCE_MIME_TYPE,
 						_meta: {
+							'openai/widgetPrefersBorder': true,
 							ui: {
 								csp: {
 									connectDomains: ['https://*.workers.dev'],
@@ -50,8 +32,7 @@ export default {
 										'https://*.workers.dev',
 										'https://fonts.googleapis.com',
 										'https://fonts.gstatic.com',
-										'https://image.tmdb.org',
-										'https://cdn.openai.com',
+										'https://*.oaistatic.com',
 									],
 								},
 							},
@@ -60,263 +41,178 @@ export default {
 				],
 			};
 		});
-		// Create Workout Tool
-		registerAppTool(
-			server,
-			'create-workout',
-			{
-				title: 'Create EMOM Workout',
-				description:
-					'Use this to create workout for EMOM (Every Minute On the Minute) training. Generate 5-10 exercises, with 30-60 seconds rest between each exercise. Ask the user for the duration of the workout in minutes. Each exercise needs a name, reps, instructions, and optinally a YouTube search keyword for form tutorials.',
-				inputSchema: z.object({
-					userId: z.string().describe("The user's username. Ask the user for this before using this tool."),
-					title: z.string().describe('The title of the workout.'),
-					description: z.string().describe('The description of the workout.'),
-					durationMinutes: z.number().describe('The duration of the workout in minutes.').min(1).max(60),
-					intervalSeconds: z.number().describe('The interval between exercises in seconds.').min(10).max(120).default(60),
-					exercises: z.array(exercisesSchema).min(5).max(10).describe('The exercises for the workout.'),
-				}),
-				annotations: { readOnlyHint: false },
-				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
-				},
-			},
-			async ({ userId, title, description, durationMinutes, intervalSeconds, exercises }) => {
-				const db = drizzle(env.DB);
 
-				const [result] = await db
-					.insert(workouts)
-					.values({
-						userId,
-						title,
-						description,
-						durationMinutes,
-						intervalSeconds,
-						exercises,
-						exerciseCount: exercises.length,
-					})
-					.returning();
+		// Tool: Search Products (model only, no UI — data tool for looking up product IDs)
+		server.registerTool(
+			'search-products',
+
+			{
+				title: 'Search Products',
+				description:
+					'Search products by name or category. Returns product data without showing a widget. Use this to look up product IDs before calling add-to-cart or get-product.',
+				inputSchema: {
+					query: z.string().optional().describe('Search by product name or description'),
+					category: z.string().optional().describe('Filter by category: pizza, protein, produce'),
+				},
+				annotations: { readOnlyHint: true },
+			},
+			async ({ query, category }) => {
 				return {
-					content: [
-						{
-							type: 'text',
-							text: `Created a "${title}" \n Workout id: "${result.id}" \nDescription: ${result.description}`,
-						},
-					],
-					structuredContent: {
-						workout: result,
-					},
+					content: [{ type: 'text', text: 'Not implemented' }],
 				};
 			},
 		);
 
-		// Get Workouts Tool
+		// Tool: Get Products (model + app, with UI — shows product grid widget)
 		registerAppTool(
 			server,
-			'get-workouts',
+			'get-products',
 			{
-				title: 'Get Workouts',
+				title: 'Get Products',
 				description:
-					'Use this to get all workouts for a user. Ask the user for their username before using this tool if you do not have it.',
-				inputSchema: z.object({
-					userId: z.string().describe("The user's username. Ask the user for this before using this tool."),
-				}),
-				annotations: { readOnlyHint: false },
+					"Display products in the widget. Use query to filter by name (e.g. 'pizza') or category to filter by category (e.g. 'pizza', 'protein', 'produce'). Omit both to show all products.",
+				inputSchema: {
+					query: z.string().optional().describe('Search by product name or description'),
+					category: z.string().optional().describe('Filter by category: pizza, protein, produce'),
+				},
+				annotations: { readOnlyHint: true },
 				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
+					ui: { resourceUri: WIDGET_URI },
 				},
 			},
-			async ({ userId }) => {
-				const db = drizzle(env.DB);
-				const result = await db
-					.select({
-						id: workouts.id,
-						title: workouts.title,
-						description: workouts.description,
-						durationMinutes: workouts.durationMinutes,
-						intervalSeconds: workouts.intervalSeconds,
-						exerciseCount: workouts.exerciseCount,
-					})
-					.from(workouts)
-					.where(eq(workouts.userId, userId))
-					.orderBy(workouts.createdAt);
-
-				if (result.length === 0) {
-					return {
-						content: [
-							{
-								type: 'text',
-								text: 'No workouts found for user.',
-							},
-						],
-					};
-				}
-
-				const formattedResult = result.map(
-					(workout) =>
-						`id: ${workout.id} \nTitle: ${workout.title} \nDescription: ${workout.description} \nDuration: ${workout.durationMinutes} minutes \nInterval: ${workout.intervalSeconds} seconds \nExercise Count: ${workout.exerciseCount}\n\n========================================\n\n`,
-				);
+			async ({ query, category }) => {
 				return {
-					content: [
-						{
-							type: 'text',
-							text: `Found ${result.length} workouts for user: \n\n${formattedResult}`,
-						},
-					],
-					structuredContent: {
-						workouts: result,
-					},
+					content: [{ type: 'text', text: 'Not implemented' }],
 				};
 			},
 		);
 
-		// Get specific workout tool
+		// Tool: Get Product Details (model, with UI — shows single product)
 		registerAppTool(
 			server,
-			'get-workout',
+			'get-product',
 			{
-				title: 'View Workout',
+				title: 'Get Product Details',
 				description:
-					'Use this to get a specific workout with all its exercises. The widget shows a Start Workout button that opens a fullscreen timer session.',
-				inputSchema: z.object({
-					workoutId: z.string().describe("The workout's id. Ask the user for this before using this tool if you do not have it."),
-				}),
-				annotations: { readOnlyHint: false },
+					"Display a single product's full details in the widget. Always call this when the user asks about a specific product. Use search-products first to find the product ID.",
+				inputSchema: {
+					productId: z.string().describe('Product ID to display'),
+				},
+				annotations: { readOnlyHint: true },
 				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
+					ui: { resourceUri: WIDGET_URI },
 				},
 			},
-			async ({ workoutId }) => {
-				const db = drizzle(env.DB);
-				const [result] = await db.select().from(workouts).where(eq(workouts.id, workoutId)).limit(1);
-
-				if (result === undefined) {
-					return {
-						content: [
-							{
-								type: 'text',
-								text: 'No workout found with the given id.',
-							},
-						],
-					};
-				}
-
+			async ({ productId }) => {
 				return {
-					content: [
-						{
-							type: 'text',
-							text: `Viewing "${result.title}" - ${result.durationMinutes} min workout with ${result.exerciseCount} exercises.`,
-						},
-					],
-					structuredContent: {
-						workout: result,
-					},
+					content: [{ type: 'text', text: 'Not implemented' }],
 				};
 			},
 		);
 
-		// Delete workout tool
-		registerAppTool(
-			server,
-			'delete-workout',
+		// Tool: Add to Cart (model + app, no UI)
+		server.registerTool(
+			'add-to-cart',
 			{
-				title: 'Delete Workout',
-				description:
-					'Use this to delete a specific workout for a user. The widget shows a Delete Workout button that deletes the workout and all its exercises.',
-				inputSchema: z.object({
-					workoutId: z.string().describe("The workout's id. Ask the user for this before using this tool if you do not have it."),
-				}),
-				annotations: { readOnlyHint: false },
+				title: 'Add to Cart',
+				description: 'Add a product to the shopping cart. Use search-products first to find the product ID.',
+				inputSchema: {
+					productId: z.string().describe('Product ID to add'),
+					quantity: z.number().int().default(1).describe('Quantity to add (negative to decrement)'),
+				},
 				_meta: {
-					ui: {
-						resourceUri: WIDGET_URI,
-					},
+					ui: { visibility: ['model', 'app'] },
 				},
 			},
-			async ({ workoutId }) => {
-				const db = drizzle(env.DB);
-				await db.delete(workouts).where(eq(workouts.id, workoutId));
-
+			async ({ productId, quantity }) => {
 				return {
-					content: [
-						{
-							type: 'text',
-							text: `Deleted workout with id: "${workoutId}".`,
-						},
-					],
+					content: [{ type: 'text', text: 'Not implemented' }],
 				};
 			},
 		);
 
-		// Complete workout tool
+		// Tool: Remove from Cart (model + app, no UI)
+		server.registerTool(
+			'remove-from-cart',
+			{
+				title: 'Remove from Cart',
+				description: 'Remove a product from the shopping cart.',
+				inputSchema: {
+					productId: z.string().describe('Product ID to remove'),
+				},
+				_meta: {
+					ui: { visibility: ['model', 'app'] },
+				},
+			},
+			async ({ productId }) => {
+				return {
+					content: [{ type: 'text', text: 'Not implemented' }],
+				};
+			},
+		);
+
+		// Tool: View Cart (model + app, with UI — shows cart widget)
 		registerAppTool(
 			server,
-			'complete-workout',
+			'view-cart',
 			{
-				title: 'Complte Workout',
-				description:
-					'Use this to complete a specific workout for a user. The widget shows a Complete Workout button that completes the workout and all its exercises.',
-				inputSchema: z.object({
-					workoutId: z.string().describe("The workout's id. Ask the user for this before using this tool if you do not have it."),
-					roundsCompleted: z.number().describe('The number of rounds completed for the workout.'),
-				}),
-				annotations: { readOnlyHint: false },
+				title: 'View Cart',
+				description: 'View current shopping cart contents',
+				inputSchema: {},
+				annotations: { readOnlyHint: true },
 				_meta: {
 					ui: {
 						resourceUri: WIDGET_URI,
+						visibility: ['model', 'app'],
 					},
 				},
 			},
-			async ({ workoutId, roundsCompleted }) => {
-				const db = drizzle(env.DB);
-				const [result] = await db.select().from(workouts).where(eq(workouts.id, workoutId)).limit(1);
-
-				if (result === undefined) {
-					return {
-						content: [
-							{
-								type: 'text',
-								text: 'No workout found with the given id.',
-								isError: true,
-							},
-						],
-					};
-				}
-				const summary = result.exercises.map((exercise) => `${exercise.name} - ${exercise.reps} reps`).join(', ');
-
-				const response = (await env.AI.run('@cf/zai-org/glm-4.7-flash' as keyof AiModels, {
-					messages: [
-						{
-							role: 'system',
-							content:
-								'You are a fitness calories calculator. Reply only with single integer representing the calories burned from the workout. No text, no units, nothing else than a single integer.',
-						},
-						{
-							role: 'user',
-							content: `I did an EMOM workout. Here is exactly how much I exercised:\n\n
-							- Round completed ${roundsCompleted}\n
-							 Exercises per round: ${summary}\n`,
-						},
-					],
-				})) as any;
-
-				const calories = response.choices[0].message.content;
+			async () => {
 				return {
-					content: [
-						{
-							type: 'text',
-							text: `Completed ${roundsCompleted} rounds for workout. Calories burned: ${calories}`,
-						},
-					],
-					structuredContent: {
-						calories: parseInt(calories, 10),
-					},
+					content: [{ type: 'text', text: 'Not implemented' }],
+				};
+			},
+		);
+
+		// Tool: Checkout (app only, no UI)
+		server.registerTool(
+			'checkout',
+			{
+				title: 'Checkout',
+				description: 'Complete checkout and create an order from current cart',
+				inputSchema: {},
+				_meta: {
+					ui: { visibility: ['app'] },
+				},
+			},
+			async () => {
+				return {
+					content: [{ type: 'text', text: 'Not implemented' }],
+				};
+			},
+		);
+
+		// Tool: Submit Review (app only, no UI)
+		server.registerTool(
+			'submit-review',
+
+			{
+				title: 'Submit Review',
+				description: 'Submit or update a product review with rating, text, and optional image',
+				inputSchema: {
+					productId: z.string().describe('Product ID to review'),
+					rating: z.number().int().min(1).max(5).describe('Rating from 1 to 5'),
+					text: z.string().describe('Review text'),
+					imageUrl: z.string().nullable().optional().describe('Temporary download URL of uploaded review image'),
+				},
+
+				_meta: {
+					ui: { visibility: ['app'] },
+				},
+			},
+			async ({ productId, rating, text, imageUrl }) => {
+				return {
+					content: [{ type: 'text', text: 'Not implemented' }],
 				};
 			},
 		);
@@ -327,3 +223,22 @@ export default {
 		return handler(request, env, ctx);
 	},
 } satisfies ExportedHandler<Env>;
+
+const publicHandler = {
+	async fetch(request, env, ctx) {
+		const url = new URL(request.url);
+		if (url.pathname === '/authorize') {
+			return handleAuthorize(request, env, ctx);
+		}
+		return new Response(null, { status: 404 });
+	},
+} satisfies ExportedHandler<Env>;
+
+export default new OAuthProvider({
+	defaultHandler: publicHandler,
+	apiHandler: privateHandler,
+	apiRoute: ['/mcp'],
+	authorizeEndpoint: '/authorize',
+	clientRegistrationEndpoint: '/register',
+	tokenEndpoint: '/token',
+});
