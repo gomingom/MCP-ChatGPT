@@ -10,9 +10,7 @@
 	"observability": {
 		"enabled": true,
 	},
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_compat"],
 	"assets": {
 		"directory": "dist",
 		"binding": "ASSETS",
@@ -26,15 +24,12 @@
 			"migrations_dir": "drizzle",
 		},
 	],
-	"ai": {
-		"binding": "AI",
-	},
 	"kv_namespaces": [
 		{
 			"binding": "OAUTH_KV",
 			"id": "bc2f69a962a74686b2256842ec64ac9b",
-			"remote": true
-		}
+			"remote": true,
+		},
 	],
 	/**
 	 * Smart Placement
