@@ -120,6 +120,12 @@ const privateHandler = {
 			},
 			async ({ productId }) => {
 				const product = await getProduct(env.DB, productId);
+				if (!product) {
+					return {
+						content: [{ type: 'text', text: 'Product not found.' }],
+						isError: true,
+					};
+				}
 				const productReviews = await getReviewsByProductId(env.DB, productId);
 
 				return {

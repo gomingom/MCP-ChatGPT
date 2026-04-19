@@ -94,7 +94,7 @@ export function ProductDetailScreen({
                 </div>
               ))}{" "}
             </div>{" "}
-            <div className="text-sm text-white/50 leading-relaxed">
+            {/* <div className="text-sm text-white/50 leading-relaxed">
               {" "}
               {higlights.map((item, index) => (
                 <p key={index} className="my-1">
@@ -102,7 +102,7 @@ export function ProductDetailScreen({
                   • {item}{" "}
                 </p>
               ))}{" "}
-            </div>{" "}
+            </div>{" "} */}
             <div className="mt-4 border-t border-white/10 pt-4">
               {" "}
               <h3 className="text-base font-semibold text-neutral-100 mb-3">
