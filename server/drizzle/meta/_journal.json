@@ -15,6 +15,13 @@
       "when": 1775995327224,
       "tag": "0001_flawless_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776520764153,
+      "tag": "0002_cynical_clint_barton",
+      "breakpoints": true
     }
   ]
 }

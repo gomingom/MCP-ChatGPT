@@ -1,45 +1,65 @@
+import { useState, useCallback, useEffect } from "react";
 import {
   applyDocumentTheme,
   applyHostStyleVariables,
   useApp,
-  type McpUiDisplayMode,
 } from "@modelcontextprotocol/ext-apps/react";
 import { LoadingIndicator } from "@openai/apps-sdk-ui/components/Indicator";
-import { useEffect, useState } from "react";
-import { WorkoutList } from "./components/workout/workout-list";
-import { WorkoutDetail } from "./components/workout/workout-detail";
-import { WorkoutSession } from "./components/workout/workout-session";
-import type { ToolOutput } from "./types";
+import type { Product, CartItem, Order, Review } from "./types";
+import { ProductsScreen } from "./screens/ProductsScreen";
+import { ProductDetailScreen } from "./screens/ProductDetailScreen";
+import { CartScreen } from "./screens/CartScreen";
+import { CheckoutCompleteScreen } from "./screens/CheckoutCompleteScreen";
+
+export type View =
+  | "loading"
+  | "products"
+  | "product"
+  | "cart"
+  | "checkout-complete";
 
 export default function App() {
-  const [toolOutput, setToolOutput] = useState<ToolOutput | null>(null);
-  const [showSession, setShowSession] = useState(false);
-  const [displayMode, setDisplayMode] = useState<McpUiDisplayMode>("inline");
-  const [safeArea, setSafeArea] = useState({
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
-  });
+  const [view, setView] = useState<View>("loading");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
-  const { app } = useApp({
-    appInfo: { name: "EMOM Workout App", version: "1.0" },
+  const handleToolResult = useCallback(
+    ({
+      structuredContent,
+    }: {
+      structuredContent?: {
+        product?: Product;
+        products?: Product[];
+        cartItems?: CartItem[];
+        reviews?: Review[];
+      };
+    }) => {
+      if (!structuredContent) return;
+      if ("product" in structuredContent) {
+        setSelectedProduct(structuredContent.product!);
+        if (structuredContent.reviews) {
+          setReviews(structuredContent.reviews);
+        }
+        setView("product");
+      } else if ("products" in structuredContent) {
+        setProducts(structuredContent.products!);
+        setView("products");
+      } else if ("cartItems" in structuredContent) {
+        setCart(structuredContent.cartItems!);
+        setView("cart");
+      }
+    },
+    [],
+  );
+
+  const { app, isConnected } = useApp({
+    appInfo: { name: "ecommerce-widget", version: "1.0.0" },
     capabilities: {},
     onAppCreated: (app) => {
-      // TODO: safeAreaInsets and displayMode
-      app.onhostcontextchanged = (ctx) => {
-        if (ctx.displayMode) {
-          setDisplayMode(ctx.displayMode);
-        }
-        if (ctx.safeAreaInsets) {
-          setSafeArea(ctx.safeAreaInsets);
-        }
-      };
-      app.ontoolresult = (params) => {
-        if (params.structuredContent) {
-          setToolOutput(params.structuredContent as ToolOutput);
-        }
-      };
+      app.ontoolresult = handleToolResult;
     },
   });
 
@@ -54,34 +74,71 @@ export default function App() {
     }
   }, [app]);
 
-  if (toolOutput && "workout" in toolOutput) {
-    if (showSession) {
-      return (
-        <WorkoutSession
-          workout={toolOutput.workout}
-          onClose={() => setShowSession(false)}
-          app={app}
-          displayMode={displayMode}
-          safeArea={safeArea}
-        />
-      );
-    }
+  if (!isConnected) {
     return (
-      <WorkoutDetail
-        workout={toolOutput.workout}
-        onStart={() => setShowSession(true)}
+      <div className="min-h-24 bg-black text-white/60 flex items-center justify-center">
+        Connecting...
+      </div>
+    );
+  }
+
+  if (view === "product" && selectedProduct) {
+    return (
+      <ProductDetailScreen
         app={app}
+        hasProducts={products.length > 0}
+        selectedProduct={selectedProduct}
+        cart={cart}
+        setCart={setCart}
+        reviews={reviews}
+        setReviews={setReviews}
+        onNavigate={setView}
       />
     );
   }
 
-  if (toolOutput && "workouts" in toolOutput) {
-    return <WorkoutList workouts={toolOutput.workouts} />;
+  if (view === "cart") {
+    return (
+      <CartScreen
+        app={app}
+        cart={cart}
+        setCart={setCart}
+        setLastOrder={setLastOrder}
+        hasProducts={products.length > 0}
+        onNavigate={setView}
+      />
+    );
+  }
+
+  if (view === "checkout-complete") {
+    return (
+      <CheckoutCompleteScreen
+        app={app}
+        lastOrder={lastOrder}
+        onNavigate={setView}
+      />
+    );
+  }
+
+  if (view === "products") {
+    return (
+      <ProductsScreen
+        app={app}
+        products={products}
+        cart={cart}
+        setCart={setCart}
+        onSelectProduct={(product) => {
+          setSelectedProduct(product);
+          setView("product");
+        }}
+        onNavigate={setView}
+      />
+    );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-50">
-      <LoadingIndicator size={32} />
+    <div className="min-h-24 bg-black text-white/60 flex items-center justify-center">
+      <LoadingIndicator size={24} />
     </div>
   );
 }
