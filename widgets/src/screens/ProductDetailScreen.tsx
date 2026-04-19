@@ -35,7 +35,7 @@ export function ProductDetailScreen({
   const formatPrice = useFormatPrice(app);
   const cartItem = cart.find((c) => c.id === selectedProduct.id);
   const quantity = cartItem?.quantity ?? 0;
-  const { nutritionFacts, higlights } = selectedProduct;
+  const { nutritionFacts, highlights } = selectedProduct;
   return (
     <div className="min-h-screen bg-black text-neutral-100">
       {" "}
@@ -94,15 +94,15 @@ export function ProductDetailScreen({
                 </div>
               ))}{" "}
             </div>{" "}
-            {/* <div className="text-sm text-white/50 leading-relaxed">
+            <div className="text-sm text-white/50 leading-relaxed">
               {" "}
-              {higlights.map((item, index) => (
+              {highlights.map((item, index) => (
                 <p key={index} className="my-1">
                   {" "}
                   • {item}{" "}
                 </p>
               ))}{" "}
-            </div>{" "} */}
+            </div>{" "}
             <div className="mt-4 border-t border-white/10 pt-4">
               {" "}
               <h3 className="text-base font-semibold text-neutral-100 mb-3">

@@ -8,7 +8,7 @@ export type Product = {
   shortDescription: string;
   detailSummary: string;
   nutritionFacts: NutritionFact[];
-  higlights: string[];
+  highlights: string[];
   image: string;
   category: string;
 };
