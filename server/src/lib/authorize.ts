@@ -11,7 +11,7 @@ export async function handleAuthorize(request: Request, env: Env, ctx: Execution
 	return new Response(JSON.stringify(client));
 }
 
-export async function handleAuthorizePost(request: Request, env: Env, ctx: ExecutionContext) {
+export async function handleAuthorizeGet(request: Request, env: Env, ctx: ExecutionContext) {
 	const url = new URL(request.url);
 	const clientId = url.searchParams.get('client_id');
 	if (!clientId) {
@@ -20,7 +20,7 @@ export async function handleAuthorizePost(request: Request, env: Env, ctx: Execu
 	const client = await env.OAUTH_PROVIDER.lookupClient(clientId);
 	return renderLoginPage(url.searchParams.toString(), client?.clientName ?? 'Unknown');
 }
-export async function handleAuthorizeGet(request: Request, env: Env, ctx: ExecutionContext) {
+export async function handleAuthorizePost(request: Request, env: Env, ctx: ExecutionContext) {
 	const url = new URL(request.url);
 	const formData = await request.formData();
 	const email = formData.get('email') as string;

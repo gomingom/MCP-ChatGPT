@@ -20,12 +20,7 @@ export const searchProducts = async (d1: D1Database, query?: string, category?: 
 	}
 
 	return await db
-		.select({
-			id: products.id,
-			name: products.name,
-			price: products.price,
-			category: products.category,
-		})
+		.select()
 		.from(products)
 		.where(conditions.length > 0 ? and(...conditions) : undefined);
 };

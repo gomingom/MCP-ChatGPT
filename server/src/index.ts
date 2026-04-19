@@ -70,7 +70,7 @@ const privateHandler = {
 				const data = await searchProducts(env.DB, query, category);
 
 				return {
-					content: [{ type: 'text', text: JSON.stringify(data) }],
+					content: [{ type: 'text', text: JSON.stringify(data.map((p) => ({ id: p.id, name: p.name }))) }],
 				};
 			},
 		);
