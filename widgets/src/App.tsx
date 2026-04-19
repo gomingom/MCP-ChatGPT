@@ -63,7 +63,6 @@ export default function App() {
       app.ontoolresult = handleToolResult;
     },
   });
-  useHostStyles(app, app?.getHostContext());
   useEffect(() => {
     if (!app || !isConnected) return;
 
@@ -74,7 +73,7 @@ export default function App() {
     if (ctx?.styles?.variables) {
       applyHostStyleVariables(ctx.styles.variables);
     }
-  }, [app]);
+  }, [app, isConnected]);
 
   if (!isConnected) {
     return (
