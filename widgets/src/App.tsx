@@ -65,7 +65,8 @@ export default function App() {
   });
   useHostStyles(app, app?.getHostContext());
   useEffect(() => {
-    if (!app) return;
+    if (!app || !isConnected) return;
+
     const ctx = app.getHostContext();
     if (ctx?.theme) {
       applyDocumentTheme(ctx.theme);
