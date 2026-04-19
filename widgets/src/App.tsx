@@ -3,7 +3,6 @@ import {
   applyDocumentTheme,
   applyHostStyleVariables,
   useApp,
-  useHostStyles,
 } from "@modelcontextprotocol/ext-apps/react";
 import { LoadingIndicator } from "@openai/apps-sdk-ui/components/Indicator";
 import type { Product, CartItem, Order, Review } from "./types";
