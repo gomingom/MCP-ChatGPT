@@ -24,7 +24,7 @@ export function CheckoutCompleteScreen({ app, lastOrder, onNavigate }: Props) {
           type: "resource",
           resource: {
             mimeType: "text/plain",
-            uri: `file:///receipt-${lastOrder.orderId}`,
+            uri: `file:///receipt-${lastOrder.orderId}.txt`,
             text: `Order: ${lastOrder.orderId}\n\nTotal: ${formatPrice(lastOrder.total)}\n\nItems: ${JSON.stringify(lastOrder.cartItems)}`,
           },
         },

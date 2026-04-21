@@ -61,7 +61,7 @@ export const getCartProducts = async (d1: D1Database, userId: string) => {
 	return await db
 		.select({ id: products.id, name: products.name, price: products.price, image: products.image, quantity: cartItems.quantity })
 		.from(cartItems)
-		.innerJoin(products, eq(cartItems.id, products.id))
+		.innerJoin(products, eq(cartItems.productId, products.id))
 		.where(eq(cartItems.userId, userId));
 };
 
