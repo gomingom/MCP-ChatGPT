@@ -12,9 +12,24 @@ type Props = {
 export function CheckoutCompleteScreen({ app, lastOrder, onNavigate }: Props) {
   const formatPrice = useFormatPrice(app);
 
+  const capabilities = app?.getHostCapabilities();
+
+  const supportsFileDownload = "downloadFile" in (capabilities ?? {});
+
   const handleDownloadReceipt = async () => {
     if (!app || !lastOrder) return;
-    // TODO: Download receipt
+    await app.downloadFile({
+      contents: [
+        {
+          type: "resource",
+          resource: {
+            mimeType: "text/plain",
+            uri: `file:///receipt-${lastOrder.orderId}`,
+            text: `Order: ${lastOrder.orderId}\n\nTotal: ${formatPrice(lastOrder.total)}\n\nItems: ${JSON.stringify(lastOrder.cartItems)}`,
+          },
+        },
+      ],
+    });
   };
 
   return (
@@ -29,12 +44,14 @@ export function CheckoutCompleteScreen({ app, lastOrder, onNavigate }: Props) {
           </p>
         )}
         <div className="flex flex-col gap-3">
-          <button
-            onClick={handleDownloadReceipt}
-            className="px-6 py-3 rounded-full border border-white/10 bg-neutral-900 text-neutral-100 text-sm font-medium cursor-pointer hover:bg-neutral-800 transition-colors"
-          >
-            Download Receipt
-          </button>
+          {supportsFileDownload && (
+            <button
+              onClick={handleDownloadReceipt}
+              className="px-6 py-3 rounded-full border border-white/10 bg-neutral-900 text-neutral-100 text-sm font-medium cursor-pointer hover:bg-neutral-800 transition-colors"
+            >
+              Download Receipt
+            </button>
+          )}
           <button
             onClick={() => onNavigate("products")}
             className="px-6 py-3 rounded-full border-none bg-neutral-100 text-neutral-950 text-sm font-medium cursor-pointer"

@@ -47,10 +47,16 @@ export function QuantityStepper({
   const handleAdjust = async (delta: number) => {
     if (!app || isPending) return;
     setIsPending(true);
-    // TODO: Modify cart quantity
-    void productId;
-    void delta;
-    void setCart;
+    const result = await app.callServerTool({
+      name: "modify-cart",
+      arguments: {
+        productId,
+        quantity: delta,
+      },
+    });
+    if (!result.isError) {
+      setCart(result.structuredContent?.cartItems as CartItem[]);
+    }
     setIsPending(false);
   };
 

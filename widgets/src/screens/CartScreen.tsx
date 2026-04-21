@@ -30,8 +30,15 @@ export function CartScreen({
     if (!app) return;
     setIsCheckingOut(true);
     try {
-      // TODO: Checkout
-      void setLastOrder;
+      const result = await app.callServerTool({
+        name: "checkout",
+        arguments: {},
+      });
+      if (!result.isError) {
+        setLastOrder(result.structuredContent as Order);
+        setCart([]);
+        onNavigate("checkout-complete");
+      }
     } finally {
       setIsCheckingOut(false);
     }
